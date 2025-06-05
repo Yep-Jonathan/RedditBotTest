@@ -1,9 +1,9 @@
 FROM python:3.13-alpine
-
 WORKDIR /app
-COPY requirements.txt /app/requirements.txt
-RUN pip install -r /app/requirements.txt
 
-COPY . /app
+COPY requirements.txt requirements.txt
+RUN pip install -r requirements.txt
 
-RUN python /app/main.py
+COPY . .
+
+RUN python main.py
