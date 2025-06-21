@@ -20,6 +20,8 @@ typeFullToShort = {
     "Supporter": None
 }
 
+tags = ["Ultra Beast"]
+
 energyImagesToCost = {
     "https://img.game8.co/3994730/6e5546e2fbbc5a029ac79acf2b2b8042.png/show": "{C}",
     "https://img.game8.co/4018721/a654c44596214b3bf38769c180602a16.png/show": "{C}",
@@ -67,91 +69,86 @@ energyImagesToCost = {
 }
 
 
-url = "https://game8.co/games/Pokemon-TCG-Pocket/archives/482685"
+def getCardsList():
+    url = "https://game8.co/games/Pokemon-TCG-Pocket/archives/482685"
 
-response = requests.get(url)
-soup = BeautifulSoup(response.text, "lxml")
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "lxml")
 
-tables = soup.find_all("table")
+    tables = soup.find_all("table")
 
-table = None
-# the table we want is the only one with a thead
-for t in tables:
-    header = t.find("thead")
-    if header:
-        table = t
-        break
+    table = None
+    # the table we want is the only one with a thead
+    for t in tables:
+        header = t.find("thead")
+        if header:
+            table = t
+            break
 
-if table is None:
-    raise ValueError(f"No card data was found at this url ({url})")
+    if table is None:
+        raise ValueError(f"No card data was found at this url ({url})")
 
-cards = []
-for row in table.find_next("tbody").find_all("tr"):
-    tds = row.find_all("td")
+    cards = []
+    for row in table.find_next("tbody").find_all("tr"):
+        card = {}
+        tds = row.find_all("td")
 
-    if len(tds) != 11:
-        raise ValueError(f"Unexpected table data. Please review data table at {url}")
-       
-    setName, cardNumber = tds[1].text.split(" ")[0], tds[1].text.split(" ")[1]
-
-    cardURL = tds[2].a.get("href")
-    cardImageURL = tds[2].div.get("data-image-url")
-    cardName = tds[2].text.strip()
-    
-    rarity = len(tds[3].text)
-
-    typeFull = tds[5].img.get("alt").split(" ")[-1]
-    type = typeFullToShort[typeFull]
-
-    hp = tds[6].text.strip()
-    stage = tds[7].text.strip()
-
-    if type is not None:
-        try:
-            divs = tds[9].find_all("div")
+        if len(tds) != 11:
+            raise ValueError(f"Unexpected table data. Please review data table at {url}")
         
-            retreatCost = energyImagesToCost[divs[0].img.get("data-src")] if divs[0].img.get("data-src") else None
+        card["setName"], card["cardNumber"] = tds[1].text.split(" ")[0], tds[1].text.split(" ")[1]
 
-            attacks = []
-            for d in divs[1:]:
-                effect = d.next_sibling.next_sibling.next_sibling.strip("\n") or None
-                cost = ''.join(energyImagesToCost[a.get("data-src")] for a in d.find_all("img"))
+        card["cardURL"] = tds[2].a.get("href")
+        card["cardImageURL"] = tds[2].div.get("data-image-url")
+        card["cardName"] = tds[2].text.strip()
+        
+        card["rarity"] = tds[3].text
 
-                attacks.append({
-                    "name": d.b.text,
-                    "cost": cost,
-                    "effect": effect,
-                    "damage": d.next_sibling.strip()
-                })
-        except KeyError as e:
-            # TODO: handle error better
-            print (f"Unable to parse {cardName} ({setName}, {cardNumber}): {e}")
-    
-    else:
-        # TODO: trainers
-        print(f"skipping card {setName}, {cardNumber}, {cardName}")
+        card["typeFull"] = tds[5].img.get("alt").split(" ")[-1]
+        card["type"] = typeFullToShort[card["typeFull"]]
 
-    cards.append({
-        "cardURL": cardURL,
-        "cardImageURL": cardImageURL,
+        card["hp"] = tds[6].text.strip()
+        card["stage"] = tds[7].text.strip()
 
-        "setName": setName,
-        "cardNumber": cardNumber,
-        "cardName": cardName,
-        "rarity": rarity,
-        "typeFull": typeFull,
-        "type": type,
-        "hp": hp,
-        "stage": stage,
-        "retreatCost": retreatCost if type is not None else None,
-        "attacks": attacks if type is not None else None
+        if card["type"] is not None:
+            try:
+                divs = tds[9].find_all("div")
+                card["retreatCost"] = energyImagesToCost[divs[0].img.get("data-src")] if divs[0].img.get("data-src") else None
 
-        # TODO: trainers
-        # TODO: abilities
-    })
+                cardText = tds[9].find_all(string=True)
+                abilityIndex = cardText.index('[Ability]') if '[Ability]' in cardText else -1
+                if abilityIndex != -1:
+                    card["ability"] = f"{cardText[abilityIndex+1].strip("\n").strip(" ")}: {cardText[abilityIndex+2].strip("\n").strip(" ")}"
 
-    if len(cards) > 1500:
-        break
+                attacks = []
+                for d in divs[1:]:
+                    if d.b.text.strip() in tags:
+                        if "tags" not in card:
+                            card["tags"] = []
+                        card["tags"].append(d.b.text)
+                        continue
+                    effect = d.next_sibling.next_sibling.next_sibling.strip("\n") or None
+                    cost = ''.join(energyImagesToCost[a.get("data-src")] for a in d.find_all("img"))
 
-# print(json.dumps(cards, indent=4))
+                    attacks.append({
+                        "name": d.b.text,
+                        "cost": cost,
+                        "effect": effect,
+                        "damage": d.next_sibling.strip()
+                    })
 
+            except (KeyError, IndexError) as e:
+                # TODO: handle error better
+                raise LookupError(f"Unable to parse {card["cardName"]} ({card["setName"]}, {card["cardNumber"]})")
+
+            card["attacks"] = attacks
+        else:
+            card["effect"] = tds[9].text.replace("-", "").strip()
+
+        cards.append(card)
+
+    return cards
+
+if __name__ == "__main__":
+    cards = getCardsList()
+    print(json.dumps(cards, indent=4))
