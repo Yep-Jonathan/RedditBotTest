@@ -15,9 +15,9 @@ typeFullToShort = {
     "Dragon": "{N}",
     "Colorless": "{C}",
 
-    "Item": None,
-    "Tool": None,
-    "Supporter": None
+    "Item": "Item",
+    "Tool": "Tool",
+    "Supporter": "Supporter"
 }
 
 tags = ["Ultra Beast"]
@@ -107,10 +107,10 @@ def getCardsList():
         card["typeFull"] = tds[5].img.get("alt").split(" ")[-1]
         card["type"] = typeFullToShort[card["typeFull"]]
 
-        card["hp"] = tds[6].text.strip()
-        card["stage"] = tds[7].text.strip()
+        if card["type"] not in ["Item", "Tool", "Supporter"]:
+            card["hp"] = tds[6].text.strip()
+            card["stage"] = tds[7].text.strip()
 
-        if card["type"] is not None:
             try:
                 divs = tds[9].find_all("div")
                 card["retreatCost"] = energyImagesToCost[divs[0].img.get("data-src")] if divs[0].img.get("data-src") else None
