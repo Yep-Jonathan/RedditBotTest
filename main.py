@@ -2,6 +2,15 @@ import praw
 import time
 from envparse import env
 
+import matcher
+import filters
+import json
+
+def markdownFormatForCard(card):
+    # shown:   CARD_NAME (SET, #)
+    # link to:  image   full_details
+    return f'[{card["cardName"]}]({card["cardImageURL"]}) ([{card["setName"]}, {card["cardNumber"]}]({card["cardURL"]}))'
+
 def main():
     client_id = env("REDDIT_CLIENT_ID")
     client_secret = env("REDDIT_CLIENT_SECRET")
@@ -21,16 +30,41 @@ def main():
     # target subreddit
     subreddit = reddit.subreddit('test_posts')
 
+    cardList = []
+    with open("data/cardList.json", "r", encoding="utf_16") as f:
+         cardList = json.load(f)
+
     print("Bot is running...")
+    # TODO: listen to comments too
     for post in subreddit.stream.submissions():
-        print(f"title: {post.title}, author: {post.author}")
         try:
-            # Check if the comment contains a specific keyword
+            # Only post on my submissions
             if 'toastyoven13' == post.author:
                 print(f"Found a post by toastyoven13: {post.title}")
-                # Reply to the comment
-                post.reply("Another automated reply: Thank you for your post!")
-                print("Replied to the comment.")
+                results = []
+                matches = matcher.GetMatches(post.selftext)
+                if len(matches) == 0:
+                    continue
+                for m in matches:
+                    cards = filter(filters.ByName(m.strip(" ")), cardList)
+                    # TODO: apply multiple filters
+                    results.append(list(cards))
+
+                # assemble the reddit markdown post
+                markdown = ""
+                for r in results:
+                    if len(r) == 0:
+                        continue
+                    markdown += "-"
+                    for card in r:
+                        markdown += f' {markdownFormatForCard(card)}'
+                    markdown += "\n"
+
+                print(markdown)  # TODO: remove
+                if markdown != "":
+                    # Reply to the comment
+                    post.reply(markdown)
+                print("Replied to the comment")
         except Exception as e:
             print(f"An error occurred: {e}")
             time.sleep(30) # Wait before retrying in case of an error
