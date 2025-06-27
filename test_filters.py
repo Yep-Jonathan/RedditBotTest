@@ -99,6 +99,27 @@ def test_supporter(cardList):
         assert c["type"] == "Supporter"
 
 
+def test_diamond_rarity(cardList):
+    diamondCards = filter(filters.DiamondRarity(), cardList)
+    cards = list(diamondCards)
+    assert len(cards) == 820
+    for c in cards:
+        assert c["rarity"] in ['\u25c7', '\u25c7'*2, '\u25c7'*3, '\u25c7'*4]
+
+def test_promo(cardList):
+    promoCards = filter(filters.Promo(), cardList)
+    cards = list(promoCards)
+    assert len(cards) == 82
+    for c in cards:
+        assert c["rarity"] == "Promo"
+
+def test_diamond_rarity_or_promo(cardList):
+    diamondOrPromo = filter(lambda x: filters.DiamondRarity()(x) or filters.Promo()(x), cardList)
+    cards = list(diamondOrPromo)
+    assert len(cards) == 902
+    for c in cards:
+        assert c["rarity"] in ['\u25c7', '\u25c7'*2, '\u25c7'*3, '\u25c7'*4, "Promo"]
+
 def test_multiple_filters(cardList):    
     geneticApexCards = filter(filters.BySet("A1"), cardList)
     cards = filter(filters.ByCardNumber(1), geneticApexCards)

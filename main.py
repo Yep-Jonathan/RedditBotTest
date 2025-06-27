@@ -34,6 +34,9 @@ def main():
     with open("data/cardList.json", "r", encoding="utf_16") as f:
          cardList = json.load(f)
 
+    # only look at promo or diamond cards
+    cardList = list(filter(lambda x: filters.DiamondRarity()(x) or filters.Promo()(x), cardList))
+
     print("Bot is running...")
     # TODO: listen to comments too
     for post in subreddit.stream.submissions():
@@ -62,9 +65,10 @@ def main():
 
                 print(markdown)  # TODO: remove
                 if markdown != "":
-                    # Reply to the comment
                     post.reply(markdown)
-                print("Replied to the comment")
+                    print("Replied to the comment")
+                else:
+                    print("Did not reply to the comment")
         except Exception as e:
             print(f"An error occurred: {e}")
             time.sleep(30) # Wait before retrying in case of an error

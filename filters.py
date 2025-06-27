@@ -57,3 +57,21 @@ def ByType(typeName):
             t = typeAliases[t]
         return item["type"].upper() == t
     return f
+
+def DiamondRarity():
+    """
+    Only include diamond rarity
+    """
+    def f(item):
+        rarity = item["rarity"]
+        return rarity.startswith("\u25c7")
+    return f
+
+def Promo():
+    """
+    Only include Promo cards
+    """
+    def f(item):
+        rarity = item["rarity"]
+        return rarity.startswith("Promo")
+    return f
