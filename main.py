@@ -41,34 +41,35 @@ def main():
     # TODO: listen to comments too
     for post in subreddit.stream.submissions():
         try:
-            # Only post on my submissions
-            if 'toastyoven13' == post.author:
-                print(f"Found a post by toastyoven13: {post.title}")
-                results = []
-                matches = matcher.GetMatches(post.selftext)
-                if len(matches) == 0:
+            if 'toastyoven13' != post.author:
+                continue  # FIXME: Only post on my submissions
+
+            print(f"Found a post by toastyoven13: {post.title}")
+            results = []
+            matches = matcher.GetMatches(post.selftext)
+            if len(matches) == 0:
+                continue
+            for m in matches:
+                cards = filter(filters.ByName(m.strip(" ")), cardList)
+                # TODO: apply multiple filters
+                results.append(list(cards))
+
+            # assemble the reddit markdown post
+            markdown = ""
+            for r in results:
+                if len(r) == 0:
                     continue
-                for m in matches:
-                    cards = filter(filters.ByName(m.strip(" ")), cardList)
-                    # TODO: apply multiple filters
-                    results.append(list(cards))
+                markdown += "-"
+                for card in r:
+                    markdown += f' {markdownFormatForCard(card)}'
+                markdown += "\n"
 
-                # assemble the reddit markdown post
-                markdown = ""
-                for r in results:
-                    if len(r) == 0:
-                        continue
-                    markdown += "-"
-                    for card in r:
-                        markdown += f' {markdownFormatForCard(card)}'
-                    markdown += "\n"
-
-                print(markdown)  # TODO: remove
-                if markdown != "":
-                    post.reply(markdown)
-                    print("Replied to the comment")
-                else:
-                    print("Did not reply to the comment")
+            print(markdown)  # TODO: remove
+            if markdown != "":
+                post.reply(markdown)
+                print("Replied to the comment")
+            else:
+                print("Did not reply to the comment")
         except Exception as e:
             print(f"An error occurred: {e}")
             time.sleep(30) # Wait before retrying in case of an error
