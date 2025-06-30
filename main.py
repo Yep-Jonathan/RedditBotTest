@@ -1,10 +1,11 @@
+from envparse import env
+import json
 import praw
 import time
-from envparse import env
 
-import matcher
 import filters
-import json
+import interpret
+import matcher
 
 def markdownFormatForCard(card):
     # shown:   CARD_NAME (SET, #)
@@ -18,6 +19,8 @@ def main():
     password = env("REDDIT_PASSWORD")
     user_agent = env("REDDIT_USER_AGENT", default="test bot by /u/toastyoven13")
     
+    subredditName = env("REDDIT_SUBREDDIT", default="test_posts")
+
     # Authenticate with Reddit
     reddit = praw.Reddit(
         client_id=client_id,
@@ -28,7 +31,7 @@ def main():
     )
 
     # target subreddit
-    subreddit = reddit.subreddit('test_posts')
+    subreddit = reddit.subreddit(subredditName)
 
     cardList = []
     with open("data/cardList.json", "r", encoding="utf_16") as f:
@@ -46,11 +49,12 @@ def main():
 
             print(f"Found a post by toastyoven13: {post.title}")
             results = []
-            matches = matcher.GetMatches(post.selftext)
+            matches = matcher.Match(post.selftext)
             if len(matches) == 0:
                 continue
+
             for m in matches:
-                cards = filter(filters.ByName(m.strip(" ")), cardList)
+                cards = interpret.Interpret(m, cardList)
                 # TODO: apply multiple filters
                 results.append(list(cards))
 

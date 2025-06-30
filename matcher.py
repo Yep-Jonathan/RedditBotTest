@@ -1,6 +1,6 @@
 import re
 
-def GetMatches(text: str) -> list:
+def Match(text: str) -> list:
     """
     Finds the matches for items in double parentheses in the given text.
     Returns a list of these matches.
