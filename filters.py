@@ -38,17 +38,17 @@ def ByCardNumber(num):
     return f
 
 typeAliases = {
-    "GRASS": "{G}",
-    "FIRE": "{R}",
-    "WATER": "{W}",
-    "LIGHTNING": "{L}",
-    "PSYCHIC": "{P}",
-    "FIGHTING": "{F}",
-    "DARKNESS": "{D}",
-    "METAL": "{M}",
-    "FAIRY": "{Y}",
-    "DRAGON": "{N}",
-    "COLORLESS": "{C}",
+    "G": "{G}", "GRASS": "{G}",
+    "R": "{R}", "FIRE": "{R}",
+    "W": "{W}", "WATER": "{W}",
+    "L": "{L}", "LIGHTNING": "{L}",
+    "P": "{P}", "PSYCHIC": "{P}",
+    "F": "{F}", "FIGHTING": "{F}",
+    "D": "{D}", "DARKNESS": "{D}",
+    "M": "{M}", "METAL": "{M}",
+    "Y": "{Y}", "FAIRY": "{Y}",
+    "N": "{N}", "DRAGON": "{N}",
+    "C": "{C}", "COLORLESS": "{C}",
 }
 def ByType(typeName):
     def f(item):
