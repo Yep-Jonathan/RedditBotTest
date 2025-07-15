@@ -1,6 +1,7 @@
+import asyncio
 from envparse import env
 import json
-import praw
+import asyncpraw
 import time
 
 import filters
@@ -12,39 +13,12 @@ def markdownFormatForCard(card):
     # link to:  image   full_details
     return f'[{card["cardName"]}]({card["cardImageURL"]}) ([{card["setName"]}, {card["cardNumber"]}]({card["cardURL"]}))'
 
-def main():
-    client_id = env("REDDIT_CLIENT_ID")
-    client_secret = env("REDDIT_CLIENT_SECRET")
-    username = env("REDDIT_USERNAME")
-    password = env("REDDIT_PASSWORD")
-    user_agent = env("REDDIT_USER_AGENT", default="test bot by /u/toastyoven13")
-    
-    subredditName = env("REDDIT_SUBREDDIT", default="test_posts")
-
-    # Authenticate with Reddit
-    reddit = praw.Reddit(
-        client_id=client_id,
-        client_secret=client_secret,
-        username=username,
-        password=password,
-        user_agent=user_agent
-    )
-
-    # target subreddit
-    subreddit = reddit.subreddit(subredditName)
-
-    cardList = []
-    with open("data/cardList.json", "r", encoding="utf_16") as f:
-         cardList = json.load(f)
-
-    # only look at promo or diamond cards
-    cardList = list(filter(lambda x: filters.DiamondRarity()(x) or filters.Promo()(x), cardList))
-
-    print("Bot is running...")
+async def monitorAndReply(stream):
     # TODO: listen to comments too
-    for post in subreddit.stream.submissions():
+    async for post in stream:
         try:
             if 'toastyoven13' != post.author:
+                # print(f"Skipping post by {post.author}")
                 continue  # FIXME: Only post on my submissions
 
             print(f"Found a post by toastyoven13: {post.title}")
@@ -78,5 +52,40 @@ def main():
             print(f"An error occurred: {e}")
             time.sleep(30) # Wait before retrying in case of an error
 
+async def main():
+    client_id = env("REDDIT_CLIENT_ID")
+    client_secret = env("REDDIT_CLIENT_SECRET")
+    username = env("REDDIT_USERNAME")
+    password = env("REDDIT_PASSWORD")
+    user_agent = env("REDDIT_USER_AGENT", default="test bot by /u/toastyoven13")
+
+    subredditName = env("REDDIT_SUBREDDIT", default="test_posts")
+
+    # Authenticate with Reddit
+    reddit = asyncpraw.Reddit(
+        client_id=client_id,
+        client_secret=client_secret,
+        username=username,
+        password=password,
+        user_agent=user_agent
+    )
+
+    # target subreddit
+    subreddit = await reddit.subreddit(subredditName)
+
+    cardList = []
+    with open("data/cardList.json", "r", encoding="utf_16") as f:
+         cardList = json.load(f)
+
+    # only look at promo or diamond cards
+    cardList = list(filter(lambda x: filters.DiamondRarity()(x) or filters.Promo()(x), cardList))
+
+    print("Bot is running...")
+
+    async with asyncio.TaskGroup() as tg:
+        tg.create_task(monitorAndReply(subreddit.stream.submissions()))
+
+    print("Bot finished running")
+
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
