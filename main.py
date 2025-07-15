@@ -13,23 +13,40 @@ def markdownFormatForCard(card):
     # link to:  image   full_details
     return f'[{card["cardName"]}]({card["cardImageURL"]}) ([{card["setName"]}, {card["cardNumber"]}]({card["cardURL"]}))'
 
-async def monitorAndReply(stream):
-    # TODO: listen to comments too
-    async for post in stream:
-        try:
-            if 'toastyoven13' != post.author:
-                # print(f"Skipping post by {post.author}")
-                continue  # FIXME: Only post on my submissions
+class Post:
+    def __init__(self, author, text, reply, submissionAuthor):
+        self.author = author
+        self.submissionAuthor = submissionAuthor
+        self.text = text
+        self.reply = reply
 
-            print(f"Found a post by toastyoven13: {post.title}")
+async def monitorAndReply(queue):
+    cardList = []
+    with open("data/cardList.json", "r", encoding="utf_16") as f:
+         cardList = json.load(f)
+
+    # only look at promo or diamond cards
+    cardList = list(filter(lambda x: filters.DiamondRarity()(x) or filters.Promo()(x), cardList))
+
+    while True:
+        post = await queue.get()
+        if post is None:
+            break
+
+        try:
+            if 'toastyoven13' != post.submissionAuthor:
+                # print(f"Skipping post by {post.author}")
+                continue  # FIXME: Listen to all submissions; skip this bot's submissions
+
+            print(f"Processing post by {post.author}: {post.text[:50]}...")
             results = []
-            matches = matcher.Match(post.selftext)
+            matches = matcher.Match(post.text)
             if len(matches) == 0:
+                print(f"  No matches found")
                 continue
 
             for m in matches:
                 cards = interpret.Interpret(m, cardList)
-                # TODO: apply multiple filters
                 results.append(list(cards))
 
             # assemble the reddit markdown post
@@ -44,13 +61,28 @@ async def monitorAndReply(stream):
 
             print(markdown)  # TODO: remove
             if markdown != "":
-                post.reply(markdown)
+                await post.reply(markdown)
                 print("Replied to the comment")
             else:
                 print("Did not reply to the comment")
         except Exception as e:
             print(f"An error occurred: {e}")
             time.sleep(30) # Wait before retrying in case of an error
+
+async def monitorSubreddit(subreddit, queue):
+    async def monitorSubmissions():
+        async for submission in subreddit.stream.submissions(skip_existing=True):
+            await queue.put(Post(submission.author, submission.selftext, submission.reply, submission.author))
+
+    async def monitorComments():
+        async for comment in subreddit.stream.comments(skip_existing=True):
+            await comment.submission.load()
+            await queue.put(Post(comment.author, comment.body, comment.reply, comment.submission.author))
+
+    async with asyncio.TaskGroup() as tg:
+        tg.create_task(monitorSubmissions())
+        tg.create_task(monitorComments())
+
 
 async def main():
     client_id = env("REDDIT_CLIENT_ID")
@@ -70,20 +102,16 @@ async def main():
         user_agent=user_agent
     )
 
+    # TODO: Ability to listen to multiple subreddits
     # target subreddit
     subreddit = await reddit.subreddit(subredditName)
-
-    cardList = []
-    with open("data/cardList.json", "r", encoding="utf_16") as f:
-         cardList = json.load(f)
-
-    # only look at promo or diamond cards
-    cardList = list(filter(lambda x: filters.DiamondRarity()(x) or filters.Promo()(x), cardList))
 
     print("Bot is running...")
 
     async with asyncio.TaskGroup() as tg:
-        tg.create_task(monitorAndReply(subreddit.stream.submissions()))
+        queue = asyncio.Queue(100)
+        tg.create_task(monitorAndReply(queue))
+        tg.create_task(monitorSubreddit(subreddit, queue))
 
     print("Bot finished running")
 
